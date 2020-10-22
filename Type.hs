@@ -33,7 +33,10 @@ subtype gamma typ1 typ2 =
     (TFun a1 a2, TFun b1 b2) -> do
       theta <- subtype gamma b1 a1
       subtype theta (apply theta a2) (apply theta b2)
-
+    -- <:-> but for type constructors
+    (TApp a1 a2, TApp b1 b2)
+      | a1 == b1 -> subtype gamma a2 b2
+      | otherwise -> error "type constructors do not match"
     -- <:forallR
     (a, TForall alpha b) -> do
       -- Do alpha conversion to avoid clashes
@@ -89,6 +92,14 @@ instantiateL gamma alpha a =
                                 ])
                               a1 alpha1
         instantiateL theta alpha2 (apply theta a2)
+      -- InstLArr for type constructors
+      TApp tc a2   -> do
+        alpha2 <- freshTVar
+        instantiateL (insertAt gamma (CExists alpha) $ context
+            [ CExists alpha2
+            , CExistsSolved alpha $ TApp tc (TExists alpha2)
+            ])
+          alpha2 a2
       -- InstLAIIR
       TForall beta b -> do
         -- Do alpha conversion to avoid clashes
@@ -128,6 +139,15 @@ instantiateR gamma a alpha =
                               alpha1
                               a1
         instantiateR theta (apply theta a2) alpha2
+      -- InstRArr for type constructors
+      TApp tc a2   -> do
+        alpha2 <- freshTVar
+        instantiateR (insertAt gamma (CExists alpha) $ context
+                                 [ CExists alpha2
+                                 , CExistsSolved alpha $ TApp tc (TExists alpha2)
+                                 ])
+                              a2
+                              alpha2
       -- InstRAIIL
       TForall beta b -> do
         -- Do alpha conversion to avoid clashes
@@ -147,6 +167,8 @@ typecheck gamma expr typ =
   checkwftype gamma typ $ case (expr, typ) of
     -- 1I
     (EUnit, TUnit) -> return gamma
+    (ELit{}, TInteger) -> return gamma
+    (EBuiltin Successor, TFun TInteger TInteger) -> return gamma
     -- ForallI
     (e, TForall alpha a) -> do
       -- Do alpha conversion to avoid clashes
@@ -181,6 +203,9 @@ typesynth gamma expr = traceNS "typesynth" (gamma, expr) $ checkwf gamma $
     -- 1I=>
     EUnit -> return (TUnit, gamma)
     EBuiltin Successor -> return (TFun TInteger TInteger, gamma)
+    EBuiltin Just_ -> do
+      alpha <- freshTVar
+      return (TForall alpha (TFun (TVar alpha) (TApp TMaybe (TVar alpha))), gamma)
     ELit{} -> return (TInteger, gamma)
     -- {-
     -- ->I=> Original rule

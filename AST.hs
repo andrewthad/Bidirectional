@@ -20,6 +20,7 @@ data Expr
 
 data Builtin
   = Successor
+  | Just_
   deriving (Eq, Show)
 
 -- | subst e' x e = [e'/x]e
@@ -62,8 +63,15 @@ data Type :: TypeKind -> * where
   TExists :: TVar -> Type a                 -- ^ alpha^
   TForall :: TVar -> Type Poly -> Type Poly -- ^ forall alpha. A
   TFun    :: Type a -> Type a -> Type a     -- ^ A -> B
+  TApp    :: TyCon -> Type a -> Type a      -- ^ A B
 deriving instance Show (Type a)
 deriving instance Eq (Type a)
+
+-- Type constructors (kinded: * -> *)
+data TyCon
+  = TList -- ^ List 
+  | TMaybe -- ^ Maybe
+  deriving (Show,Eq)
 
 -- Smart constructors
 tunit :: Type a
@@ -93,6 +101,7 @@ monotype typ = case typ of
   TForall _ _ -> Nothing
   TExists v   -> Just $ TExists v
   TFun t1 t2  -> TFun <$> monotype t1 <*> monotype t2
+  TApp tc t   -> TApp tc <$> monotype t
 
 -- | Any type is a Polytype since Monotype is a subset of Polytype
 polytype :: Type a -> Polytype
@@ -103,6 +112,7 @@ polytype typ = case typ of
   TForall v t -> TForall v t
   TExists v   -> TExists v
   TFun t1 t2  -> TFun (polytype t1) (polytype t2)
+  TApp tc t   -> TApp tc (polytype t)
 
 -- | The free type variables in a type
 freeTVars :: Type a -> Set TVar
@@ -113,6 +123,7 @@ freeTVars typ = case typ of
   TForall v t -> S.delete v $ freeTVars t
   TExists v   -> S.singleton v
   TFun t1 t2  -> freeTVars t1 `mappend` freeTVars t2
+  TApp _ t    -> freeTVars t
 
 -- | typeSubst A α B = [A/α]B
 typeSubst :: Type a -> TVar -> Type a -> Type a
@@ -126,6 +137,7 @@ typeSubst t' v typ = case typ of
   TExists v'   | v' == v   -> t'
                | otherwise -> TExists v'
   TFun t1 t2               -> TFun (typeSubst t' v t1) (typeSubst t' v t2)
+  TApp tc t                -> TApp tc (typeSubst t' v t)
 
 typeSubsts :: [(Type a, TVar)] -> Type a -> Type a
 typeSubsts = flip $ foldr $ uncurry typeSubst

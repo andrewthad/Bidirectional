@@ -48,6 +48,12 @@ instance Pretty (Type a) where
     TFun t1 t2 -> showParen (d > fun_prec) $
       bpretty (fun_prec + 1) t1 . showString " → " .
       bpretty fun_prec t2
+    TApp tc t -> showParen (d > fun_prec) $
+      showString
+        ( case tc of
+            TList -> "List "
+            TMaybe -> "Maybe "
+        ) . bpretty fun_prec t
     where
       exists_prec = 10
       forall_prec :: Int
@@ -59,6 +65,7 @@ instance Pretty Expr where
     EVar v       -> bpretty d v
     EUnit        -> showString "()"
     EBuiltin Successor -> showString "successor"
+    EBuiltin Just_ -> showString "Just"
     ELit n       -> showString (show n)
     EAbs v e     -> showParen (d > abs_prec) $
       showString "λ" . bpretty (abs_prec + 1) v .

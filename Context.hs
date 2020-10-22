@@ -60,6 +60,8 @@ typewf gamma typ = case typ of
   TForall alpha a -> typewf (gamma >: CForall alpha) a
   -- EvarWF and SolvedEvarWF
   TExists alpha -> alpha `elem` existentials gamma
+  -- Type Constructors
+  TApp _ a -> typewf gamma a
 
 -- Assert-like functionality to make sure that contexts and types are
 -- well-formed
@@ -101,6 +103,7 @@ apply gamma typ = case typ of
   TForall v t -> TForall v (apply gamma t)
   TExists v   -> maybe (TExists v) (apply gamma . polytype) $ findSolved gamma v
   TFun t1 t2  -> apply gamma t1 `TFun` apply gamma t2
+  TApp tc t   -> TApp tc (apply gamma t)
 
 -- | ordered Γ α β = True <=> Γ[α^][β^]
 ordered :: Context -> TVar -> TVar -> Bool

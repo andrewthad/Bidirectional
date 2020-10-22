@@ -13,6 +13,17 @@ data NameState = NameState
   , indent    :: Int -- This has no place here, but useful for debugging
   }
 
+instance Show NameState where
+  showsPrec _ (NameState a b c) =
+      showString "NameString {varNames = "
+    . shows (head a)
+    . showString ", tvarNames = "
+    . shows (head b)
+    . showString ", indent = "
+    . shows c
+    . showString "}"
+   
+
 initialNameState :: NameState
 initialNameState = NameState
   { varNames  = map (Var . ('$':)) namelist
